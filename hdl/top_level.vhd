@@ -50,6 +50,7 @@ end component;
 signal clk_100mhz             : std_logic;
 signal clk_wiz_reset          : std_logic;
 signal mb_reset               : std_logic;
+signal locked                 : std_logic;
 signal buffer_button          : std_logic;
 signal m_axi_user_regs_awaddr : STD_LOGIC_VECTOR ( 31 downto 0 ); 
 signal m_axi_user_regs_awprot : STD_LOGIC_VECTOR ( 2 downto 0 );  
@@ -74,16 +75,16 @@ signal m_axi_user_regs_rready : STD_LOGIC;
 --fpga register interface
 signal fpga_reg               : fpgaReg32;
 
-signal led_ctrl_reg           : std_logic_vector(31 downto 0);
+signal led_ctrl_reg           : std_logic_vector(31 downto 0):=(others => '0');
 
 
 signal reset_counter          : integer range 0 to 2000000 :=0;
 signal aresetn                : std_logic := '0';
 signal areset                 : std_logic := '1';
-attribute MARK_DEBUG : string;
-attribute MARK_DEBUG of sys_clk_100 : signal is "TRUE";
-attribute MARK_DEBUG of UART_0_txd  : signal is "TRUE";
-attribute MARK_DEBUG of UART_0_rxd : signal is "TRUE";
+--attribute MARK_DEBUG : string;
+--attribute MARK_DEBUG of sys_clk_100 : signal is "TRUE";
+--attribute MARK_DEBUG of UART_0_txd  : signal is "TRUE";
+--attribute MARK_DEBUG of UART_0_rxd : signal is "TRUE";
 
 
 
@@ -105,36 +106,42 @@ reset_process : process (sys_clk_100)
 begin
     if rising_edge(sys_clk_100) then
         
-        if reset_counter < 10000 then
-           
+        if locked = '0' then
+            aresetn <= '0';
             areset  <= '1';
             reset_counter <= reset_counter + 1;
         else
-           
+            aresetn <= '1';
             areset  <= '0';
         end if;
     end if;
 end process;
+
 clk_wiz_reset <= areset;
-mb_reset <= not aresetn;
+
 sys_clk_inst: clk_wiz_0
    port map ( 
-  -- Clock out ports  
-   clk_out1 => clk_100mhz,
-  -- Status and control signals                
-   reset => clk_wiz_reset,
-   locked => aresetn,
-   -- Clock in ports
-   clk_in1 => sys_clk_100
- );
+      -- Clock out ports  
+      clk_out1 => clk_100mhz,
+      -- Status and control signals                
+      reset => clk_wiz_reset,
+      locked => locked,
+      -- Clock in ports
+      clk_in1 => sys_clk_100
+    );
+    
 --populating port maps with bogus signals , just wanted to get started on modulse and top level instances
 led_control_inst : entity work.led_blink
-port map(
-     clk        => clk_100mhz
-    ,aresetn    => aresetn
-    ,button_in  => buffer_button
-    ,control_reg => led_ctrl_reg
-    ,buffer_led => buffer_led
+    generic map (
+         G_SIMULATE => true
+        ,G_USE_REGS => true
+    )
+    port map(
+         clk        => clk_100mhz
+        ,aresetn    => aresetn
+        ,button_in  => buffer_button
+        ,control_reg => led_ctrl_reg
+        ,buffer_led => buffer_led
     );
 
 register_interace_inst : entity work.reg_rw_interface

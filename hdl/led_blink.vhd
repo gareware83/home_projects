@@ -36,7 +36,8 @@ use work.all;
 
 entity led_blink is
     Generic(
-        G_SIMULATE : boolean := false
+        G_SIMULATE : boolean := false;
+        G_USE_REGS : boolean := true
     );
     Port ( clk         : in STD_LOGIC;
            aresetn     : in STD_LOGIC;
@@ -67,69 +68,67 @@ begin
 
 counter_limit <= 5000 when G_SIMULATE = true else 100000000;
 
-ctrl_reg_blink : process(clk, aresetn)
-    --variable counter_limit : integer := 0;
-   
-begin
-    if (aresetn = '0') then
-        blink_led        <='0';
-        button_count     <= 0;
-        state            <= reset_state;
-        counter_led      <= 0;
-        start_blink      <= '0';               
-    elsif (rising_edge(clk)) then
-        if control_reg(0)= '1' then
-            if counter_led <= counter_limit  then
-                counter_led <= counter_led + 1;
-                blink_led <= '1';                                  
-            elsif counter_led > counter_limit and counter_led < counter_limit*2 then
-               counter_led <=  counter_led + 1;
-               blink_led   <= '0'; 
-            else 
-                counter_led <=  0;   
-            end if;                                 
-        end if;        
-    end if;
-end process;
-   
-
-button_blink : process(clk, aresetn)
-    --variable counter_limit : integer := 0;
-   
-begin
-    if (aresetn = '0') then
-        blink_led        <='0';
-        button_count     <= 0;
-        state            <= reset_state;
-        counter_led      <= 0;
-        buffer_button_r  <= '1';
-        buffer_button_rr <= '1';
-        buffer_button_rrr <= '1';
-        start_blink      <= '0';       
-        
-    elsif (rising_edge(clk)) then
-       
-        buffer_button_r    <= button_in;
-        buffer_button_rr   <= buffer_button_r;
-        buffer_button_rrr  <= buffer_button_rr;
-        if buffer_button_rrr = '0' then
-            start_blink <= '1';
-        end if; 
-        if start_blink = '1' then
-            if counter_led <= counter_limit  then
-                counter_led <= counter_led + 1;
-                blink_led <= '1';                                  
-            elsif counter_led > counter_limit and counter_led < counter_limit*2 then
-               counter_led <=  counter_led + 1;
-               blink_led   <= '0'; 
-            else 
-                counter_led <=  0;   
-            end if;                                 
+gen_use_register : if G_USE_REGS generate
+    ctrl_reg_blink : process(clk, aresetn)
+    begin
+        if (aresetn = '0') then
+            blink_led        <='0';
+            button_count     <= 0;
+            state            <= reset_state;
+            counter_led      <= 0;
+            start_blink      <= '0';               
+        elsif (rising_edge(clk)) then
+            if control_reg(0)= '1' then
+                if counter_led <= counter_limit  then
+                    counter_led <= counter_led + 1;
+                    blink_led <= '1';                                  
+                elsif counter_led > counter_limit and counter_led < counter_limit*2 then
+                   counter_led <=  counter_led + 1;
+                   blink_led   <= '0'; 
+                else 
+                    counter_led <=  0;   
+                end if;                                 
+            end if;        
         end if;
-        
-    end if;
-end process;
-   
+    end process;
+end generate;   
+
+gen_use_button : if not G_USE_REGS generate
+    button_blink : process(clk, aresetn)   
+    begin
+        if (aresetn = '0') then
+            blink_led        <='0';
+            button_count     <= 0;
+            state            <= reset_state;
+            counter_led      <= 0;
+            buffer_button_r  <= '1';
+            buffer_button_rr <= '1';
+            buffer_button_rrr <= '1';
+            start_blink      <= '0';       
+            
+        elsif (rising_edge(clk)) then
+           
+            buffer_button_r    <= button_in;
+            buffer_button_rr   <= buffer_button_r;
+            buffer_button_rrr  <= buffer_button_rr;
+            if buffer_button_rrr = '0' then
+                start_blink <= '1';
+            end if; 
+            if start_blink = '1' then
+                if counter_led <= counter_limit  then
+                    counter_led <= counter_led + 1;
+                    blink_led <= '1';                                  
+                elsif counter_led > counter_limit and counter_led < counter_limit*2 then
+                   counter_led <=  counter_led + 1;
+                   blink_led   <= '0'; 
+                else 
+                    counter_led <=  0;   
+                end if;                                 
+            end if;
+            
+        end if;
+    end process;
+end generate;   
 
  
  

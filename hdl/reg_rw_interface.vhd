@@ -41,7 +41,7 @@ entity reg_rw_interface is
            s_axi_user_regs_rresp   : out STD_LOGIC_VECTOR ( 1 downto 0 );     
            s_axi_user_regs_rvalid  : out STD_LOGIC;                          
            s_axi_user_regs_rready  : in STD_LOGIC;
-           fpga_reg                : fpgaReg32                                                     
+           fpga_reg                : out fpgaReg32                                                     
 );                
 end reg_rw_interface;
 
@@ -132,7 +132,9 @@ begin
         if (s_axi_user_regs_wvalid ='1' and wready = '0')   then
             wea    <= "0000";
             wready <= '1';
-            dina   <= s_axi_user_regs_wdata;
+            for i in 0 to C_REG_COUNT - 1 loop
+                fpga_reg(i)   <= s_axi_user_regs_wdata;
+            end loop;
             bvalid <= '1';
         elsif (s_axi_user_regs_bready and bvalid) = '1' then
             bvalid <= '0';
