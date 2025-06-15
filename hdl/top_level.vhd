@@ -20,12 +20,13 @@ entity top_level is
     Generic(
         G_SIMULATE : boolean := false
     );
-    Port ( sys_clk_100 : in STD_LOGIC;
+    Port ( sys_clk_100  : in STD_LOGIC;
            --ext_reset    : in STD_LOGIC; --pull reset in and use sw register for soft reset, but also see if there is a pll lock tied in from the board
-           UART_0_txd : out std_logic;
-           UART_0_rxd : in std_logic;
-           button_press  : in STD_LOGIC;
-           buffer_led : out STD_LOGIC);
+           UART_0_txd   : out std_logic;
+           UART_0_rxd   : in std_logic;
+           button_press : in STD_LOGIC;
+           buffer_led   : out STD_LOGIC
+           );
 end top_level;
 
 architecture Behavioral of top_level is
@@ -48,8 +49,7 @@ end component;
 
 
 signal clk_100mhz             : std_logic;
-signal clk_wiz_reset          : std_logic;
-signal mb_reset               : std_logic;
+signal clk_wiz_reset          : std_logic := '1';
 signal locked                 : std_logic;
 signal buffer_button          : std_logic;
 signal m_axi_user_regs_awaddr : STD_LOGIC_VECTOR ( 31 downto 0 ); 
@@ -78,17 +78,15 @@ signal fpga_reg               : fpgaReg32;
 signal led_ctrl_reg           : std_logic_vector(31 downto 0):=(others => '0');
 
 
-signal reset_counter          : integer range 0 to 2000000 :=0;
-signal aresetn                : std_logic := '0';
-signal areset                 : std_logic := '1';
+signal reset_counter  : natural   := 0;
+signal aresetn        : std_logic := '0';
+signal areset         : std_logic := '1';
+signal control_reg    : std_logic_vector(C_ADDR_WIDTH - 1  downto 0);
 --attribute MARK_DEBUG : string;
 --attribute MARK_DEBUG of sys_clk_100 : signal is "TRUE";
 --attribute MARK_DEBUG of UART_0_txd  : signal is "TRUE";
 --attribute MARK_DEBUG of UART_0_rxd : signal is "TRUE";
-
-
-
-                    
+                  
 begin
 
  ibuf_inst : IBUF
@@ -102,14 +100,27 @@ begin
 --So using a counter to wait for clock to stabilize and provide a reset for now
 --Using negative asserted reset as if looking for a locked signal from a clock gen or PLL
 --TODO: enable sw reset via user registers, so will need a clock gen process to honor both resets
-reset_process : process (sys_clk_100)
-begin
+
+clk_reset_proc : process (sys_clk_100)
+begin 
     if rising_edge(sys_clk_100) then
         
+        if reset_counter > 100000 then
+            clk_wiz_reset <= '0';
+        else
+            reset_counter <= reset_counter + 1;
+        end if;
+    end if;
+end process;    
+reset_process : process (sys_clk_100)
+begin
+    if clk_wiz_reset = '1' then
+        aresetn <= '0';
+        areset  <= '1';   
+    elsif rising_edge(sys_clk_100) then        
         if locked = '0' then
             aresetn <= '0';
             areset  <= '1';
-            reset_counter <= reset_counter + 1;
         else
             aresetn <= '1';
             areset  <= '0';
@@ -117,7 +128,8 @@ begin
     end if;
 end process;
 
-clk_wiz_reset <= areset;
+
+led_ctrl_reg <= fpga_reg(C_LED_CONTROL_ADDR_IND);
 
 sys_clk_inst: clk_wiz_0
    port map ( 
@@ -176,7 +188,7 @@ md_bd_inst : entity work.ublaze_ps_wrapper
 
   port map(
       clk_100mhz           => clk_100mhz                --: in STD_LOGIC;
-     ,areset               => mb_reset             --: in STD_LOGIC;   
+     ,areset               => areset             --: in STD_LOGIC;   
     ,uart_rtl_0_txd        => UART_0_txd              --: out STD_LOGIC;
     ,uart_rtl_0_rxd        => UART_0_rxd              --: in STD_LOGIC;
     ,axi_user_regs_awaddr  => m_axi_user_regs_awaddr--: out STD_LOGIC_VECTOR ( 31 downto 0 ); 

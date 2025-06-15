@@ -107,3 +107,40 @@ arty chip: xc7a35tcsg324-3 (active)
     MODULE_DESCRIPTION("Si5341 driver");
     MODULE_LICENSE("GPL");
 
+## Example uart processing:
+
+void process_command(char *cmd) {
+    // Example: match a known command
+    if (strncmp(cmd, "CMD_ONE", CMD_LENGTH) == 0) {
+        print("You entered CMD_ONE");
+    	//XUartLite_SendByte(UartLite.RegBaseAddress, u8 Data);
+    } else if (strncmp(cmd, "CMD_TWO", CMD_LENGTH) == 0) {
+    	print("You entered CMD_TWO");
+    } else {
+        // Unknown command
+    }
+}
+
+int main() {
+    char cmd_buf[CMD_LENGTH];
+    int index = 0;
+
+    XUartLite_Initialize(&UartLite, UART_DEVICE_ID);
+    print("Program Started");
+    while (1) {
+        if (XUartLite_IsReceiveEmpty(UartLite.RegBaseAddress) == 0) {
+            char c = XUartLite_RecvByte(UartLite.RegBaseAddress);
+            print("uart recieved som characters");
+            cmd_buf[index++] = c;
+
+            if (index >= CMD_LENGTH) {
+                process_command(cmd_buf);
+                index = 0; // reset for next command
+            }
+        }
+    }
+
+    return 0;
+}
+
+
